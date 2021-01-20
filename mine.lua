@@ -14,27 +14,21 @@ EXPECTED_TORCHES = 64
 FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
 
 function log_error(message)
-    if not fs.exists('/logs') then
-        fs.makeDir('/logs')
-    end
-    local f = fs.open('/logs/log.txt', 'a')
+    local f = fs.open('log.txt', 'a')
     f.write(message)
     f.write("\n")
     f.close()
 end
 
 function serialize(data, name)
-    if not fs.exists('/data') then
-        fs.makeDir('/data')
-    end
-    local f = fs.open('/data/'..name, 'w')
+    local f = fs.open(name, 'w')
     f.write(textutils.serialize(data))
     f.close()
 end
  
 function unserialize(name)
-    if fs.exists('/data/'..name) then
-        local f = fs.open('/data/'..name, 'r')
+    if fs.exists(name) then
+        local f = fs.open(name, 'r')
         data = textutils.unserialize(f.readAll())
         f.close()
     end
