@@ -17,12 +17,14 @@ function log_error(message)
     local f = fs.open('log.txt', 'a')
     f.write(message)
     f.write("\n")
+    f.flush()
     f.close()
 end
 
 function serialize(data, name)
     local f = fs.open(name, 'w')
     f.write(textutils.serialize(data))
+    f.flush()
     f.close()
 end
  
