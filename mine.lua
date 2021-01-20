@@ -13,6 +13,16 @@ TORCH_SPAN = 4
 EXPECTED_TORCHES = 64
 FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
 
+function log_error(message)
+    if not fs.exists('/logs') then
+        fs.makeDir('/logs')
+    end
+    local f = fs.open('/logs/log.txt', 'a')
+    f.write(message)
+    f.write("\n")
+    f.close()
+end
+
 function serialize(data, name)
     if not fs.exists('/data') then
         fs.makeDir('/data')
@@ -51,7 +61,7 @@ function fuel()
         if found then
             turtle.refuel(1)
         else 
-            print(reason)
+            log_error(reason)
             return false
         end
     end
@@ -72,8 +82,8 @@ function has_enough_torches(status)
     torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
     needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - status["position"]) / 4)
     if not status["position"] == 0 and needed_torches > torch_count then
-        print("Not enough torches. Required at least")
-        print(needed_torches)
+        log_error("Not enough torches. Required at least")
+        log_error(needed_torches)
         return false
     end
     return true
@@ -87,8 +97,8 @@ function has_enough_coal(status)
         needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
     end
     if not (coal_count >= needed_coal) then
-        print("Not enough coal. Required at least")
-        print(needed_coal)
+        log_error("Not enough coal. Required at least")
+        log_error(needed_coal)
         return false
     end
     return true
@@ -110,7 +120,7 @@ function main()
     end
 
     if not has_enough_items(digging_status) then
-        print("Please provide enough could to fuel a full trip")
+        log_error("Please provide enough could to fuel a full trip")
         return
     end
 
