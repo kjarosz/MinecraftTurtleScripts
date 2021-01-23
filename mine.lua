@@ -90,9 +90,9 @@ function Digger:has_enough_coal()
 
     local needed_coal = 0
     if self.data.direction == DIRECTION_FORWARD then
-        needed_coal = math.ceil((2 * FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
+        needed_coal = math.ceil((2 * FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
     else
-        needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
+        needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
     end
 
     if not (coal_count >= needed_coal) then
