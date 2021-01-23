@@ -37,12 +37,6 @@ function unserialize(name)
     return data
 end
 
-function initialize_status()
-    digging_status = {}
-    digging_status["position"] = 0
-    digging_status["direction"] = DIRECTION_FORWARD
-end
-
 function is_done(status)
     if status["direction"] == DIRECTION_BACKWARD and status["position"] == 0 then
         return true
@@ -108,15 +102,52 @@ function has_enough_fuel(status)
     end
 end
 
-function main()
-    digging_status = unserialize(EXCAVATION_STATUS_FILE)
+Digger = {
+    data = {
+        position = 0,
+        direction = DIRECTION_FORWARD
+    }
+}
 
-    if digging_status == nil then
-        digging_status = initialize_status()
+function Digger:load_data()
+    loaded_data = unserialize(EXCAVATION_STATUS_FILE)
+
+    if not digging_status == nil then
+        self.data = loaded_data
     end
 
     if not has_enough_items(digging_status) then
-        log_error("Please provide enough could to fuel a full trip")
+        log_error("Please provide enough coal to fuel a full trip")
+        return
+    end
+end
+
+function Digger:check_items()
+    return self.has_enough_coal() and self.has_enough_torches()
+end
+
+function Digger:has_enough_coal()
+    coal_found, coal_count = select_item_index(ITEM_DETAIL_COAL)
+
+    if self.data.direction == DIRECTION_FORWARD then
+        needed_coal = math.ceil((2 * FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
+    else 
+        needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
+    end
+
+    if not (coal_count >= needed_coal) then
+        log_error("Not enough coal. Required at least")
+        log_error(needed_coal)
+        return false
+    else
+        return true
+    end
+end
+
+
+function main()
+    Digger.load_data()
+    if not Digger.check_items() then
         return
     end
 
@@ -131,7 +162,6 @@ function main()
             digging_status["position"] = digging_status["position"] + 1
         end
         serialize(digging_status, EXCAVATION_STATUS_FILE)
-
     end
 end
 
