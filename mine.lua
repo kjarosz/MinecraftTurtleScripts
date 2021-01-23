@@ -42,7 +42,7 @@ local function select_item_index(name)
     for i = 1, 16, 1 do
         turtle.select(i)
         local item_detail = turtle.getItemDetail()
-        if item_detail == nil and item_detail["name"] == name then
+        if not item_detail == nil and item_detail["name"] == name then
             return true, item_detail["count"]
         end
     end
