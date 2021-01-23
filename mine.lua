@@ -73,7 +73,7 @@ function Digger:load_data()
     print("Loading data")
     local loaded_data = unserialize(EXCAVATION_STATUS_FILE)
 
-    if not loaded_data == nil then
+    if not (loaded_data == nil) then
         print("Data found and loaded: "..textutils.serialize(loaded_data))
         self.data = loaded_data
     end
@@ -113,7 +113,7 @@ function Digger:has_enough_torches()
     if self.data.direction == DIRECTION_FORWARD then
         local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
         local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
-        if not self.data.position == 0 and needed_torches > torch_count then
+        if not (self.data.position == 0) and needed_torches > torch_count then
             print("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
             return false
         else
@@ -181,7 +181,7 @@ function Digger:move()
 end
 
 function Digger:needs_a_torch()
-    return self.data.position % 4 == 0 and not self.data.position == 0
+    return ((self.data.position % 4) == 0) and (not (self.data.position == 0))
 end
 
 function Digger:is_at_the_end()
