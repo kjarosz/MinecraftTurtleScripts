@@ -70,14 +70,17 @@ end
 setmetatable(Digger, {__call=Digger.__init__})
 
 function Digger:load_data()
+    print("Loading data")
     local loaded_data = unserialize(EXCAVATION_STATUS_FILE)
 
     if not loaded_data == nil then
+        print("Data found and loaded: "..textutils.serialize(loaded_data))
         self.data = loaded_data
     end
 end
 
 function Digger:save_data()
+    print("Saving data: "..textutils.serialize(self.data))
     serialize(self.data, EXCAVATION_STATUS_FILE)
 end
 
@@ -86,6 +89,7 @@ function Digger:check_items()
 end
 
 function Digger:has_enough_coal()
+    print("Checking for coal")
     local coal_found, coal_count = select_item_index(ITEM_DETAIL_COAL)
 
     local needed_coal = 0
@@ -96,22 +100,27 @@ function Digger:has_enough_coal()
     end
 
     if not (coal_count >= needed_coal) then
-        log_error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
+        print("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
         return false
     else
+        print("Enough coal found")
         return true
     end
 end
 
 function Digger:has_enough_torches()
+    print("Checking torches")
     if self.data.direction == DIRECTION_FORWARD then
         local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
         local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
         if not self.data.position == 0 and needed_torches > torch_count then
-            log_error("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
-            log_error(needed_torches)
+            print("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
             return false
+        else
+            print("Enough torches found")
         end
+    else
+        print("Torches not needed")
     end
     return true
 end
@@ -122,11 +131,12 @@ end
 
 function Digger:fuel()
     if turtle.getFuelLevel() == 0 then
-        local found, reason = select_item_index(ITEM_DETAIL_COAL)
+        print("Fueling")
+        local found, count = select_item_index(ITEM_DETAIL_COAL)
         if found then
             turtle.refuel(1)
         else
-            log_error(reason)
+            print("Coal has not been found")
             return false
         end
     end
@@ -135,25 +145,30 @@ end
 function Digger:move()
     self:fuel()
     if self.data.direction == DIRECTION_FORWARD then
+        print("Moving forward")
         while not turtle.forward() do
             turtle.dig()
         end
         self.data.position = self.data.position + 1
+        print("Digging above")
         while turtle.detectUp() do
             turtle.digUp()
         end
         if self:needs_a_torch() then
+            print("Placing a torch")
             turtle.turnLeft()
             select_item_index(ITEM_DETAIL_TORCH)
             turtle.turnRight()
         end
         if self:is_at_the_end() then
+            print("Turning around")
             turtle.turnRight()
             turtle.turnRight()
             turtle.turnRight()
             self.data.direction = DIRECTION_BACKWARD
         end
     else
+        print("Moving back")
         while not turtle.forward() do
             turtle.dig()
         end
