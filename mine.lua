@@ -169,7 +169,6 @@ function Digger:move()
             print("Turning around")
             turtle.turnRight()
             turtle.turnRight()
-            turtle.turnRight()
             self.data.direction = DIRECTION_BACKWARD
         end
     else
