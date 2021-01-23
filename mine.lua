@@ -96,8 +96,7 @@ function Digger:has_enough_coal()
     end
 
     if not (coal_count >= needed_coal) then
-        log_error("Not enough coal. Required at least")
-        log_error(needed_coal)
+        log_error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
         return false
     else
         return true
@@ -109,7 +108,7 @@ function Digger:has_enough_torches()
         local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
         local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
         if not self.data.position == 0 and needed_torches > torch_count then
-            log_error("Not enough torches. Required at least")
+            log_error("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
             log_error(needed_torches)
             return false
         end
