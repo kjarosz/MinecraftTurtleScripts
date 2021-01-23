@@ -201,7 +201,7 @@ local function main()
         return
     end
 
-    while digger:is_done() do
+    while not digger:is_done() do
         digger:move()
         digger:save_data()
     end
