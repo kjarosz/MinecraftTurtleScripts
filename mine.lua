@@ -113,7 +113,7 @@ function Digger:has_enough_torches()
     if self.data.direction == DIRECTION_FORWARD then
         local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
         local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
-        if not (self.data.position == 0) and needed_torches > torch_count then
+        if needed_torches > torch_count then
             print("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
             return false
         else
