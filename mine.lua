@@ -1,6 +1,3 @@
-require("turtle")
-require("fs")
-
 EXCAVATION_STATUS_FILE = "excavation_data.data"
 
 ITEM_DETAIL_COAL = "minecraft:coal"
@@ -13,34 +10,38 @@ TORCH_SPAN = 4
 EXPECTED_TORCHES = 64
 FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
 
-function log_error(message)
-    log_file = fs.open('log.txt', 'a')
+COAL_FUEL_VALUE = 80
+
+local function log_error(message)
+    local log_file = fs.open('log.txt', 'a')
     log_file.write(message)
     log_file.write("\n")
     log_file.flush()
     log_file.close()
 end
 
-function serialize(data, name)
-    data_file = fs.open(name, 'w')
+local function serialize(data, name)
+    local data_file = fs.open(name, 'w')
     data_file.write(textutils.serialize(data))
     data_file.flush()
     data_file.close()
 end
- 
-function unserialize(name)
+
+local function unserialize(name)
     if fs.exists(name) then
-        data_file = fs.open(name, 'r')
-        data = textutils.unserialize(data_file.readAll())
+        local data_file = fs.open(name, 'r')
+        local data = textutils.unserialize(data_file.readAll())
         data_file.close()
+        return data
+    else
+        return nil
     end
-    return data
 end
 
-function select_item_index(name)
+local function select_item_index(name)
     for i = 1, 16, 1 do
         turtle.select(i)
-        item_detail = turtle.getItemDetail()
+        local item_detail = turtle.getItemDetail()
         if item_detail == nil and item_detail["name"] == name then
             return true, item_detail["count"]
         end
@@ -55,8 +56,21 @@ Digger = {
     }
 }
 
+function Digger.__init__(baseClass)
+    local self = { 
+        data = {
+            position = 0,
+            direction = DIRECTION_FORWARD
+        }
+    }
+    setmetatable(self, { __index = Digger })
+    return self
+end
+
+setmetatable(Digger, {__call=Digger.__init__})
+
 function Digger:load_data()
-    loaded_data = unserialize(EXCAVATION_STATUS_FILE)
+    local loaded_data = unserialize(EXCAVATION_STATUS_FILE)
 
     if not loaded_data == nil then
         self.data = loaded_data
@@ -68,15 +82,16 @@ function Digger:save_data()
 end
 
 function Digger:check_items()
-    return self.has_enough_coal() and self.has_enough_torches()
+    return self:has_enough_coal() and self:has_enough_torches()
 end
 
 function Digger:has_enough_coal()
-    coal_found, coal_count = select_item_index(ITEM_DETAIL_COAL)
+    local coal_found, coal_count = select_item_index(ITEM_DETAIL_COAL)
 
+    local needed_coal = 0
     if self.data.direction == DIRECTION_FORWARD then
         needed_coal = math.ceil((2 * FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
-    else 
+    else
         needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLeve()) / COAL_FUEL_VALUE)
     end
 
@@ -91,8 +106,8 @@ end
 
 function Digger:has_enough_torches()
     if self.data.direction == DIRECTION_FORWARD then
-        torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
-        needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
+        local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
+        local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
         if not self.data.position == 0 and needed_torches > torch_count then
             log_error("Not enough torches. Required at least")
             log_error(needed_torches)
@@ -108,10 +123,10 @@ end
 
 function Digger:fuel()
     if turtle.getFuelLevel() == 0 then
-        found, reason = select_item_index(ITEM_DETAIL_COAL)
+        local found, reason = select_item_index(ITEM_DETAIL_COAL)
         if found then
             turtle.refuel(1)
-        else 
+        else
             log_error(reason)
             return false
         end
@@ -119,7 +134,7 @@ function Digger:fuel()
 end
 
 function Digger:move()
-    self.fuel()
+    self:fuel()
     if self.data.direction == DIRECTION_FORWARD then
         while not turtle.forward() do
             turtle.dig()
@@ -128,18 +143,18 @@ function Digger:move()
         while turtle.detectUp() do
             turtle.digUp()
         end
-        if self.needs_a_torch() then
+        if self:needs_a_torch() then
             turtle.turnLeft()
             select_item_index(ITEM_DETAIL_TORCH)
             turtle.turnRight()
         end
-        if self.is_at_the_end() then
+        if self:is_at_the_end() then
             turtle.turnRight()
             turtle.turnRight()
             turtle.turnRight()
             self.data.direction = DIRECTION_BACKWARD
         end
-    else 
+    else
         while not turtle.forward() do
             turtle.dig()
         end
@@ -158,21 +173,22 @@ end
 function Digger:reset_turtle()
     self.data.position = 0
     self.data.direction = DIRECTION_FORWARD
-    self.save_data()
+    self:save_data()
 end
 
-function main()
-    Digger.load_data()
-    if not Digger.check_items() then
+local function main()
+    local digger = Digger()
+    digger:load_data()
+    if not digger:check_items() then
         return
     end
 
-    while Digger.is_done() do
-        Digger.move()
-        Digger.save_data()
+    while digger:is_done() do
+        digger:move()
+        digger:save_data()
     end
 
-    Digger.reset_turtle()
+    digger:reset_turtle()
 end
 
 main()
