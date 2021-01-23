@@ -126,7 +126,11 @@ function Digger:has_enough_torches()
 end
 
 function Digger:is_done()
-    return self.data.direction == DIRECTION_BACKWARD and self.data.position == 0
+    local done = self.data.direction == DIRECTION_BACKWARD and self.data.position == 0
+    if done then
+        print("Digger is done")
+    end
+    return done
 end
 
 function Digger:fuel()
