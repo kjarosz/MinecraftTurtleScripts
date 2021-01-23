@@ -162,6 +162,7 @@ function Digger:move()
             print("Placing a torch")
             turtle.turnLeft()
             select_item_index(ITEM_DETAIL_TORCH)
+            turtle.placeUp()
             turtle.turnRight()
         end
         if self:is_at_the_end() then
