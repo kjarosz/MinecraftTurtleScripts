@@ -1,7 +1,9 @@
 local M = {}
 
+LOG_TEXT_FILE = 'log.txt'
+
 function M.log_error(message)
-    local log_file = fs.open('log.txt', 'a')
+    local log_file = fs.open(LOG_TEXT_FILE, 'a')
     log_file.write(message)
     log_file.write("\n")
     log_file.flush()
