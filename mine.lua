@@ -1,3 +1,5 @@
+local turtle_utilities = require("turtle_utilities")
+
 EXCAVATION_STATUS_FILE = "excavation_data.data"
 
 ITEM_DETAIL_COAL = "minecraft:coal"
@@ -11,43 +13,6 @@ EXPECTED_TORCHES = 64
 FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
 
 COAL_FUEL_VALUE = 80
-
-local function log_error(message)
-    local log_file = fs.open('log.txt', 'a')
-    log_file.write(message)
-    log_file.write("\n")
-    log_file.flush()
-    log_file.close()
-end
-
-local function serialize(data, name)
-    local data_file = fs.open(name, 'w')
-    data_file.write(textutils.serialize(data))
-    data_file.flush()
-    data_file.close()
-end
-
-local function unserialize(name)
-    if fs.exists(name) then
-        local data_file = fs.open(name, 'r')
-        local data = textutils.unserialize(data_file.readAll())
-        data_file.close()
-        return data
-    else
-        return nil
-    end
-end
-
-local function select_item_index(name)
-    for i = 1, 16, 1 do
-        turtle.select(i)
-        local item_detail = turtle.getItemDetail()
-        if not (item_detail == nil) and item_detail["name"] == name then
-            return true, item_detail["count"]
-        end
-    end
-    return false, 0
-end
 
 Digger = {
     data = {
@@ -71,7 +36,7 @@ setmetatable(Digger, {__call=Digger.__init__})
 
 function Digger:load_data()
     print("Loading data")
-    local loaded_data = unserialize(EXCAVATION_STATUS_FILE)
+    local loaded_data = turtle_utilities.unserialize(EXCAVATION_STATUS_FILE)
 
     if not (loaded_data == nil) then
         print("Data found and loaded: "..textutils.serialize(loaded_data))
@@ -81,7 +46,7 @@ end
 
 function Digger:save_data()
     print("Saving data: "..textutils.serialize(self.data))
-    serialize(self.data, EXCAVATION_STATUS_FILE)
+    turtle_utilities.serialize(self.data, EXCAVATION_STATUS_FILE)
 end
 
 function Digger:check_items()
@@ -90,7 +55,7 @@ end
 
 function Digger:has_enough_coal()
     print("Checking for coal")
-    local coal_found, coal_count = select_item_index(ITEM_DETAIL_COAL)
+    local coal_found, coal_count = turtle_utilities.select_item_index(ITEM_DETAIL_COAL)
 
     local needed_coal = 0
     if self.data.direction == DIRECTION_FORWARD then
@@ -111,7 +76,7 @@ end
 function Digger:has_enough_torches()
     print("Checking torches")
     if self.data.direction == DIRECTION_FORWARD then
-        local torch_found, torch_count = select_item_index(ITEM_DETAIL_TORCH)
+        local torch_found, torch_count = turtle_utilities.select_item_index(ITEM_DETAIL_TORCH)
         local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
         if needed_torches > torch_count then
             print("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
@@ -136,7 +101,7 @@ end
 function Digger:fuel()
     if turtle.getFuelLevel() == 0 then
         print("Fueling")
-        local found, count = select_item_index(ITEM_DETAIL_COAL)
+        local found, count = turtle_utilities.select_item_index(ITEM_DETAIL_COAL)
         if found then
             turtle.refuel(1)
         else
@@ -161,7 +126,7 @@ function Digger:move()
         if self:needs_a_torch() then
             print("Placing a torch")
             turtle.turnLeft()
-            select_item_index(ITEM_DETAIL_TORCH)
+            turtle_utilities.select_item_index(ITEM_DETAIL_TORCH)
             turtle.placeUp()
             turtle.turnRight()
         end
