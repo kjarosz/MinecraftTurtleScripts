@@ -45,7 +45,7 @@ Digger = {
 
 function Digger.__init__(baseClass)
     local self = { 
-        gps = gps.locate(GPS_DEFAULT_TIMEOUT) != nil,
+        gps = not (gps.locate(GPS_DEFAULT_TIMEOUT) == nil),
         gps_settings = nil,
         data = {
             position = 0,
@@ -155,6 +155,7 @@ function Digger:get_distance_from_main_corridor()
             error("Z axis corridors not yet suppoerted")
         end
         distance_from_axis = distance_from_axis*self.gps_settings.main_corridor_direction
+        return distance_from_axis
     else
         return self.data.position
     end
@@ -234,16 +235,12 @@ function Digger:move()
 end
 
 function Digger:needs_a_torch()
+    local position = self:get_distance_from_main_corridor ()
     return ((self.data.position % 4) == 0) and (not (self.data.position == 0))
 end
 
 function Digger:is_at_the_end()
-    if self.gps then
-        local location = gps.locate()
-
-    else
-        return self.data.position == FULL_TUNNEL_TORCH_SPAN
-    end
+    return self:get_distance_from_main_corridor() == FULL_TUNNEL_TORCH_SPAN
 end
 
 function Digger:reset_turtle()
