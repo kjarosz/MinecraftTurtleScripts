@@ -4,6 +4,7 @@ local turtle_utilities = require("turtle_utilities")
 local log = Logger.new()
 
 EXCAVATION_STATUS_FILE = "excavation_data.data"
+GPS_SETTINGS_FILE = "gps_settings.data"
 
 ITEM_DETAIL_COAL = "minecraft:coal"
 ITEM_DETAIL_TORCH = "minecraft:torch"
@@ -11,13 +12,31 @@ ITEM_DETAIL_TORCH = "minecraft:torch"
 DIRECTION_FORWARD = 1
 DIRECTION_BACKWARD = 0
 
+AXIS_POSITIVE = 1
+AXIS_NEGATIVE = -1
+
 TORCH_SPAN = 4
 EXPECTED_TORCHES = 64
 FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
 
 COAL_FUEL_VALUE = 80
 
+GPS_DEFAULT_TIMEOUT = 2
+
 Digger = {
+    gps = false,
+    gps_settings = {
+        timeout = GPS_DEFAULT_TIMEOUT,
+        main_corridor_axis = "X",
+        main_corridor_direction = AXIS_POSITIVE,
+        main_corridor_start_position = {
+            x = 1, 
+            y = 1, 
+            z = 1 
+        },
+        branch_corridor_axis = "Y",
+        branch_corridor_direction = AXIS_POSITIVE
+    },
     data = {
         position = 0,
         direction = DIRECTION_FORWARD
@@ -26,6 +45,8 @@ Digger = {
 
 function Digger.__init__(baseClass)
     local self = { 
+        gps = gps.locate(GPS_DEFAULT_TIMEOUT) != nil,
+        gps_settings = nil,
         data = {
             position = 0,
             direction = DIRECTION_FORWARD
@@ -45,6 +66,39 @@ function Digger:load_data()
         log.debug("Data found and loaded: "..textutils.serialize(loaded_data))
         self.data = loaded_data
     end
+
+    if self.gps then
+        log.info("Loading gps settings")
+        local gps_settings = turtle_utilities.unserialize(GPS_SETTINGS_FILE)
+        if self.gps_settings_valid(gps_settings) then
+            log.debug("GPS Settings found and loaded: "..textutils.serialize(gps_settings))
+        else
+            log.debug("Turning off GPS.")
+            self.gps = false
+        end
+    end
+end
+
+function Digger:validate_gps_settings(settings)
+    if settings == nil then
+        log.error("GPS file not found")
+        return false
+    end
+
+    if gps_settings.main_corridor_axis == gps_settings.branch_corridor_axis then
+        log.error("Main corridor and branch corridor axes cannot be the same")
+        return false
+    end
+
+    if gps_settings.main_corridor_axis == "Z" or gps.settings.branch_corridor_axis == "Z" then
+        log.error("Z axis corridors not yet supported")
+        return false
+    end
+
+    if gps_settings.timeout == nil then
+        log.info("No timeout set. Setting default: "..GPS_DEFAULT_TIMEOUT)
+        gps_settings.timeout = GPS_DEFAULT_TIMEOUT
+    end
 end
 
 function Digger:save_data()
@@ -57,44 +111,75 @@ function Digger:check_items()
 end
 
 function Digger:has_enough_coal()
-    log.info("Checking for coal")
+    log.debug("Checking for coal")
     local coal_found, coal_count = turtle_utilities.select_item_index(ITEM_DETAIL_COAL)
 
-    local needed_coal = 0
-    if self.data.direction == DIRECTION_FORWARD then
-        needed_coal = math.ceil((2 * FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
-    else
-        needed_coal = math.ceil((FULL_TUNNEL_TORCH_SPAN - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
-    end
+    local remaining_distance = self:get_remaining_tunnel_length()
+    local needed_coal = math.ceil((remaining_distance - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
 
     if not (coal_count >= needed_coal) then
         log.error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
         return false
     else
-        log.info("Enough coal found")
+        log.debug("Enough coal found")
         return true
     end
 end
 
+function Digger:get_remaining_tunnel_length(onlyDiggable)
+    local distance_from_axis = self:get_distance_from_main_corridor()
+
+    if self.data.direction == DIRECTION_FORWARD then
+        return 2 * FULL_TUNNEL_TORCH_SPAN - distance_from_axis
+    else
+        return distance_from_axis
+    end
+end
+
+function Digger:get_distance_from_main_corridor() 
+    if self.gps then
+        local x, y, z = gps.locate(self.gps_settings.timeout)
+        if self.gps_settings.main_corridor_axis == "X" then
+            if self.gps_settings.branch_corridor_axis == "Y" then
+                distance_from_axis = (y - self.gps_settings.main_corridor_start_position.y)
+            else
+                error("Z axis corridors not yet supported")
+            end
+        elseif self.gps_settings.main_corridor_axis == "Y" then
+            if self.gps_settings.branch_corridor_axis == "X" then
+                distance_from_axis = (x - self.gps_settings.main_corridor_start_position.x)
+            else
+                error("Z axis corridors not yet supported")
+            end
+        else
+            error("Z axis corridors not yet suppoerted")
+        end
+        distance_from_axis = distance_from_axis*self.gps_settings.main_corridor_direction
+    else
+        return self.data.position
+    end
+end
+
 function Digger:has_enough_torches()
-    log.info("Checking torches")
+    log.debug("Checking torches")
     if self.data.direction == DIRECTION_FORWARD then
         local torch_found, torch_count = turtle_utilities.select_item_index(ITEM_DETAIL_TORCH)
-        local needed_torches = math.floor((FULL_TUNNEL_TORCH_SPAN - self.data.position) / 4)
+        local remaining_distance = self:get_distance_from_main_corridor()
+        local needed_torches = math.floor(remaining_distance / TORCH_SPAN)
         if needed_torches > torch_count then
             log.error("Not enough torches. Required at least " .. needed_torches .. " but found " .. torch_count .. ".")
             return false
         else
-            log.info("Enough torches found")
+            log.debug("Enough torches found")
         end
     else
-        log.info("Torches not needed")
+        log.debug("Torches not needed")
     end
     return true
 end
 
 function Digger:is_done()
-    local done = self.data.direction == DIRECTION_BACKWARD and self.data.position == 0
+    local done = self.data.direction == DIRECTION_BACKWARD and self:get_remaining_tunnel_length() == 0
     if done then
         log.info("Digger is done")
     end
@@ -153,7 +238,12 @@ function Digger:needs_a_torch()
 end
 
 function Digger:is_at_the_end()
-    return self.data.position == FULL_TUNNEL_TORCH_SPAN
+    if self.gps then
+        local location = gps.locate()
+
+    else
+        return self.data.position == FULL_TUNNEL_TORCH_SPAN
+    end
 end
 
 function Digger:reset_turtle()

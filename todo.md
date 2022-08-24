@@ -1,0 +1,5 @@
+- track position through GPS if available instead of file
+- allow turtle to use charcoal and coal
+- track position manually when GPS is not available
+- allow turtle to stash items on its own
+- build companion to help with picking up resources?
