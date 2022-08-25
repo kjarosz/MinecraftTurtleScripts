@@ -9,11 +9,15 @@ GPS_SETTINGS_FILE = "gps_settings.data"
 ITEM_DETAIL_COAL = { "minecraft:charcoal", "minecraft:coal" }
 ITEM_DETAIL_TORCH = "minecraft:torch"
 
+DIRECTION_DONE = 2
 DIRECTION_FORWARD = 1
 DIRECTION_BACKWARD = 0
+DIRECTION_NEXT_TUNNEL = -1
 
 AXIS_POSITIVE = 1
 AXIS_NEGATIVE = -1
+
+NEXT_TUNNEL_DIRECTION = "LEFT"
 
 TORCH_SPAN = 4
 EXPECTED_TORCHES = 64
@@ -27,15 +31,15 @@ Digger = {
     gps = false,
     gps_settings = {
         timeout = GPS_DEFAULT_TIMEOUT,
-        main_corridor_axis = "X",
-        main_corridor_direction = AXIS_POSITIVE,
-        main_corridor_start_position = {
+        main_axis = "X",
+        main_direction = AXIS_POSITIVE,
+        main_start_position = {
             x = 1, 
             y = 1, 
             z = 1 
         },
-        branch_corridor_axis = "Y",
-        branch_corridor_direction = AXIS_POSITIVE
+        branch_axis = "Y",
+        branch_direction = AXIS_POSITIVE
     },
     data = {
         position = 0,
@@ -85,12 +89,12 @@ function Digger:validate_gps_settings(settings)
         return false
     end
 
-    if gps_settings.main_corridor_axis == gps_settings.branch_corridor_axis then
+    if gps_settings.main_axis == gps_settings.branch_axis then
         log.error("Main corridor and branch corridor axes cannot be the same")
         return false
     end
 
-    if gps_settings.main_corridor_axis == "Y" or gps.settings.branch_corridor_axis == "Y" then
+    if gps_settings.main_axis == "Y" or gps.settings.branch_axis == "Y" then
         log.error("Y axis corridors not yet supported")
         return false
     end
@@ -127,7 +131,7 @@ function Digger:has_enough_coal()
         end
     end
 
-    log.error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
+    log.error("Not enough coal. Required at least " .. needed_coal .. " but found " .. total_coal .. ".")
     return false
 end
 
@@ -144,22 +148,22 @@ end
 function Digger:get_distance_from_main_corridor() 
     if self.gps then
         local x, y, z = gps.locate(self.gps_settings.timeout)
-        if self.gps_settings.main_corridor_axis == "X" then
-            if self.gps_settings.branch_corridor_axis == "Y" then
+        if self.gps_settings.main_axis == "X" then
+            if self.gps_settings.branch_axis == "Y" then
                 error("Y axis corridors not yet supported")
             else
-                distance_from_axis = (z - self.gps_settings.main_corridor_start_position.z)
+                distance_from_axis = (z - self.gps_settings.main_start_position.z)
             end
-        elseif self.gps_settings.main_corridor_axis == "Y" then
+        elseif self.gps_settings.main_axis == "Y" then
             error("Y axis corridors not yet supported")
         else
-            if self.gps_settings.branch_corridor_axis == "X" then
+            if self.gps_settings.branch_axis == "X" then
                 error("Y axis corridors not yet supported")
             else
-                distance_from_axis = (x - self.gps_settings.main_corridor_start_position.x)
+                distance_from_axis = (x - self.gps_settings.main_start_position.x)
             end
         end
-        distance_from_axis = distance_from_axis*self.gps_settings.main_corridor_direction
+        distance_from_axis = distance_from_axis*self.gps_settings.main_direction
         return distance_from_axis
     else
         return self.data.position
@@ -185,7 +189,7 @@ function Digger:has_enough_torches()
 end
 
 function Digger:is_done()
-    local done = self.data.direction == DIRECTION_BACKWARD and self:get_remaining_tunnel_length() == 0
+    local done = self.data.direction == DIRECTION_DONE
     if done then
         log.info("Digger is done")
     end
@@ -237,22 +241,70 @@ function Digger:move()
             turtle.turnRight()
             self.data.direction = DIRECTION_BACKWARD
         end
-    else
+    elseif self.data.direction == DIRECTION_BACKWARD then
         log.debug("Moving back")
         while not turtle.forward() do
             turtle.dig()
         end
         self.data.position = self.data.position - 1
+        if self:is_at_the_beginning() then
+            self.data.position = TORCH_SPAN
+            self:turn_towards_next_tunnel()
+            self.data.direction = DIRECTION_NEXT_TUNNEL
+        end
+    elseif self.data.direction == DIRECTION_NEXT_TUNNEL then
+        log.debug("Moving forward")
+        while not turtle.forward() do
+            turtle.dig()
+        end
+        self.data.position = self.data.position - 1
+        log.debug("Position "..self.data.position)
+        log.debug("Digging above")
+        while turtle.detectUp() do
+            turtle.digUp()
+        end
+        if self.data.position == 0 then
+            log.debug("Made it")
+            self:turn_towards_next_tunnel()
+            self.data.direction = DIRECTION_DONE
+        else
+            log.debug("Still going")
+        end
+    end
+end
+
+function Digger:turn_towards_next_tunnel()
+    if self.gps then
+        local mAxis = self.gps_settings.main_axis
+        local mDirection = self.gps_settings.main_direction
+        local bAxis = self.gps_settings.branch_axis
+        local bDirection = self.gps_settings.branch_direction
+
+        if ((mAxis == "Z" and hAxis == "X" and mDirection == bDirection)
+         or (mAxis == "X" and hAxis == "Z" and mDirection ~= bDirection)) 
+        then turtle.turnLeft()
+        else turtle.turnRight()
+        end
+    else
+        if NEXT_TUNNEL_DIRECTION == "LEFT" then
+            turtle.turnLeft()
+        else
+            turtle.turnRight()
+        end
     end
 end
 
 function Digger:needs_a_torch()
-    local position = self:get_distance_from_main_corridor ()
+    local position = self:get_distance_from_main_corridor()
     return ((self.data.position % 4) == 0) and (not (self.data.position == 0))
 end
 
 function Digger:is_at_the_end()
     return self:get_distance_from_main_corridor() == FULL_TUNNEL_TORCH_SPAN
+end
+
+function Digger:is_at_the_beginning()
+    return self:get_distance_from_main_corridor() == 0
 end
 
 function Digger:reset_turtle()

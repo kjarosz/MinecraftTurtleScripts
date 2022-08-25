@@ -1,3 +1,6 @@
+Bugs
+- when starting off the bot, the "NEXT_TUNNEL" does not factor in needed fuel
+
 Pending
 - add completion tracking and improve logs
 - track position through GPS if available instead of file
