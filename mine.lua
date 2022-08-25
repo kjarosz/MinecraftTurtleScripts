@@ -21,7 +21,7 @@ NEXT_TUNNEL_DIRECTION = "LEFT"
 
 TORCH_SPAN = 4
 EXPECTED_TORCHES = 64
-FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES
+FULL_TUNNEL_TORCH_SPAN = TORCH_SPAN * EXPECTED_TORCHES - 1 -- Last tunnel after coming back
 
 COAL_FUEL_VALUE = 80
 
@@ -229,11 +229,7 @@ function Digger:move()
             turtle.digUp()
         end
         if self:needs_a_torch() then
-            log.debug("Placing a torch")
-            turtle.turnLeft()
-            turtle_utilities.select_item_index(ITEM_DETAIL_TORCH)
-            turtle.placeUp()
-            turtle.turnRight()
+            self:place_torch()
         end
         if self:is_at_the_end() then
             log.debug("Turning around")
@@ -262,6 +258,9 @@ function Digger:move()
         log.debug("Digging above")
         while turtle.detectUp() do
             turtle.digUp()
+        end
+        if self.data.position == 2 then 
+            self.place_torch()
         end
         if self.data.position == 0 then
             log.debug("Made it")
@@ -297,6 +296,14 @@ end
 function Digger:needs_a_torch()
     local position = self:get_distance_from_main_corridor()
     return ((self.data.position % 4) == 0) and (not (self.data.position == 0))
+end
+
+function Digger:place_torch()
+    log.debug("Placing a torch")
+    turtle.turnLeft()
+    turtle_utilities.select_item_index(ITEM_DETAIL_TORCH)
+    turtle.placeUp()
+    turtle.turnRight()
 end
 
 function Digger:is_at_the_end()
