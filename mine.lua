@@ -6,7 +6,7 @@ local log = Logger.new()
 EXCAVATION_STATUS_FILE = "excavation_data.data"
 GPS_SETTINGS_FILE = "gps_settings.data"
 
-ITEM_DETAIL_COAL = "minecraft:coal"
+ITEM_DETAIL_COAL = { "minecraft:charcoal", "minecraft:coal" }
 ITEM_DETAIL_TORCH = "minecraft:torch"
 
 DIRECTION_FORWARD = 1
@@ -90,8 +90,8 @@ function Digger:validate_gps_settings(settings)
         return false
     end
 
-    if gps_settings.main_corridor_axis == "Z" or gps.settings.branch_corridor_axis == "Z" then
-        log.error("Z axis corridors not yet supported")
+    if gps_settings.main_corridor_axis == "Y" or gps.settings.branch_corridor_axis == "Y" then
+        log.error("Y axis corridors not yet supported")
         return false
     end
 
@@ -112,18 +112,23 @@ end
 
 function Digger:has_enough_coal()
     log.debug("Checking for coal")
-    local coal_found, coal_count = turtle_utilities.select_item_index(ITEM_DETAIL_COAL)
-
     local remaining_distance = self:get_remaining_tunnel_length()
     local needed_coal = math.ceil((remaining_distance - turtle.getFuelLevel()) / COAL_FUEL_VALUE)
 
-    if not (coal_count >= needed_coal) then
-        log.error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
-        return false
-    else
-        log.debug("Enough coal found")
-        return true
+    local total_coal = 0
+    for i, coal_item_name in ipairs(ITEM_DETAIL_COAL) do
+        local coal_found, coal_count = turtle_utilities.select_item_index(coal_item_name)
+        if coal_found then
+            total_coal = total_coal + coal_count
+            if total_coal >= needed_coal then
+                log.debug("Enough coal found")
+                return true
+            end
+        end
     end
+
+    log.error("Not enough coal. Required at least " .. needed_coal .. " but found " .. coal_count .. ".")
+    return false
 end
 
 function Digger:get_remaining_tunnel_length(onlyDiggable)
@@ -141,18 +146,18 @@ function Digger:get_distance_from_main_corridor()
         local x, y, z = gps.locate(self.gps_settings.timeout)
         if self.gps_settings.main_corridor_axis == "X" then
             if self.gps_settings.branch_corridor_axis == "Y" then
-                distance_from_axis = (y - self.gps_settings.main_corridor_start_position.y)
+                error("Y axis corridors not yet supported")
             else
-                error("Z axis corridors not yet supported")
+                distance_from_axis = (z - self.gps_settings.main_corridor_start_position.z)
             end
         elseif self.gps_settings.main_corridor_axis == "Y" then
-            if self.gps_settings.branch_corridor_axis == "X" then
-                distance_from_axis = (x - self.gps_settings.main_corridor_start_position.x)
-            else
-                error("Z axis corridors not yet supported")
-            end
+            error("Y axis corridors not yet supported")
         else
-            error("Z axis corridors not yet suppoerted")
+            if self.gps_settings.branch_corridor_axis == "X" then
+                error("Y axis corridors not yet supported")
+            else
+                distance_from_axis = (x - self.gps_settings.main_corridor_start_position.x)
+            end
         end
         distance_from_axis = distance_from_axis*self.gps_settings.main_corridor_direction
         return distance_from_axis
@@ -188,16 +193,23 @@ function Digger:is_done()
 end
 
 function Digger:fuel()
-    if turtle.getFuelLevel() == 0 then
-        log.debug("Fueling")
-        local found, count = turtle_utilities.select_item_index(ITEM_DETAIL_COAL)
+    if turtle.getFuelLevel() > 0 then
+        return true
+    end
+
+    log.debug("Fueling")
+    for i, coal_item_name in ipairs(ITEM_DETAIL_COAL) do
+        log.debug("Looking for "..coal_item_name)
+        local found, count = turtle_utilities.select_item_index(coal_item_name)
         if found then
+            log.debug("Eating one "..coal_item_name)
             turtle.refuel(1)
-        else
-            log.error("Coal has not been found")
-            return false
+            return true
         end
     end
+
+    log.error("No coal items have been found")
+    return false
 end
 
 function Digger:move()
