@@ -1,5 +1,3 @@
-local turtle_utilities = require("turtle_utilities")
-
 local Logger = {}
 
 Logger.LOGGER_CONFIG_FILE = "logger_config.data"
@@ -10,16 +8,37 @@ Logger.LOGGER_LEVEL_STATUS_ERROR = "error"
 Logger.LOGGER_LEVEL_STATUS_INFO = "info"
 Logger.LOGGER_LEVEL_STATUS_DEBUG = "debug"
 
-Logger.new = function()
-    local self = {}
+-- Copied from turtle_utilities
+function serialize(data, name)
+    local data_file = fs.open(name, 'w')
+    data_file.write(textutils.serialize(data))
+    data_file.flush()
+    data_file.close()
+end
 
-    self.config = turtle_utilities.unserialize(Logger.LOGGER_CONFIG_FILE)
+function unserialize(name)
+    if fs.exists(name) then
+        local data_file = fs.open(name, 'r')
+        local data = textutils.unserialize(data_file.readAll())
+        data_file.close()
+        return data
+    else
+        return nil
+    end
+end
+
+Logger.new = function(_tag)
+    local self = {
+        tag = _tag or "Untagged"
+    }
+
+    self.config = unserialize(Logger.LOGGER_CONFIG_FILE)
     if self.config == nil then
         self.config = {
             level = Logger.LOGGER_LEVEL_STATUS_INFO,
             filename = Logger.LOGGER_OUTPUT_FILE
         }
-        turtle_utilities.serialize(Logger.LOGGER_CONFIG_FILE, self.config)
+        serialize(self.config, Logger.LOGGER_CONFIG_FILE)
     end
 
     if not (
@@ -31,7 +50,7 @@ Logger.new = function()
     end
 
     local function write_to_file(level, message)
-        local out_string = "["..level.."] - "..message
+        local out_string = self.tag.." - ["..level.."] - "..message
 
         print(out_string)
 
@@ -61,11 +80,12 @@ Logger.new = function()
         log(Logger.LOGGER_LEVEL_STATUS_DEBUG, message)
     end
 
-    self.error = function(message)
+    self.error = function(message, die)
         log(Logger.LOGGER_LEVEL_STATUS_ERROR, message)
+        if die then
+            error(message, 2)
+        end
     end
-
-    write_to_file(Logger.LOGGER_LEVEL_STATUS_INFO, "===================")
 
     return self
 end

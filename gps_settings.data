@@ -1,12 +1,12 @@
 {
   timeout = 2,
-  main_corridor_axis = "Z",
-  main_corridor_direction = 1,
-  main_corridor_start_position = {
-    x = -252, 
-    y = 12, 
-    z = 252
+  main_axis = "Z",
+  main_direction = 1,
+  main_start_position = {
+    x = 218, 
+    y = 71, 
+    z = 269
   },
-  branch_corridor_axis = "X",
-  branch_corridor_direction = 1
+  branch_axis = "X",
+  branch_direction = 1
 }

@@ -1,7 +1,8 @@
 local Logger = require("logging")
 local turtle_utilities = require("turtle_utilities")
 
-local log = Logger.new()
+local log = Logger.new("Digger")
+log.info("=================")
 
 EXCAVATION_STATUS_FILE = "excavation_data.data"
 GPS_SETTINGS_FILE = "gps_settings.data"
@@ -56,6 +57,7 @@ function Digger.__init__(baseClass)
             direction = DIRECTION_FORWARD
         }
     }
+    log.info("Using gps: "..self.gps)
     setmetatable(self, { __index = Digger })
     return self
 end
@@ -74,8 +76,9 @@ function Digger:load_data()
     if self.gps then
         log.info("Loading gps settings")
         local gps_settings = turtle_utilities.unserialize(GPS_SETTINGS_FILE)
-        if self.gps_settings_valid(gps_settings) then
+        if self:validate_gps_settings(gps_settings) then
             log.debug("GPS Settings found and loaded: "..textutils.serialize(gps_settings))
+            self.gps_settings = gps_settings
         else
             log.debug("Turning off GPS.")
             self.gps = false
@@ -89,20 +92,22 @@ function Digger:validate_gps_settings(settings)
         return false
     end
 
-    if gps_settings.main_axis == gps_settings.branch_axis then
+    if settings.main_axis == settings.branch_axis then
         log.error("Main corridor and branch corridor axes cannot be the same")
         return false
     end
 
-    if gps_settings.main_axis == "Y" or gps.settings.branch_axis == "Y" then
+    if settings.main_axis == "Y" or settings.branch_axis == "Y" then
         log.error("Y axis corridors not yet supported")
         return false
     end
 
-    if gps_settings.timeout == nil then
-        log.info("No timeout set. Setting default: "..GPS_DEFAULT_TIMEOUT)
-        gps_settings.timeout = GPS_DEFAULT_TIMEOUT
+    if settings.timeout == nil then
+        log.info("No timeout set. Setting default: "..DEFAULT_TIMEOUT)
+        settings.timeout = DEFAULT_TIMEOUT
     end
+
+    return true
 end
 
 function Digger:save_data()
@@ -150,17 +155,17 @@ function Digger:get_distance_from_main_corridor()
         local x, y, z = gps.locate(self.gps_settings.timeout)
         if self.gps_settings.main_axis == "X" then
             if self.gps_settings.branch_axis == "Y" then
-                error("Y axis corridors not yet supported")
+                log.error("Y axis corridors not yet supported", true)
             else
                 distance_from_axis = (z - self.gps_settings.main_start_position.z)
             end
         elseif self.gps_settings.main_axis == "Y" then
-            error("Y axis corridors not yet supported")
+            log.error("Y axis corridors not yet supported", true)
         else
             if self.gps_settings.branch_axis == "X" then
-                error("Y axis corridors not yet supported")
-            else
                 distance_from_axis = (x - self.gps_settings.main_start_position.x)
+            else
+                log.error("Y axis corridors not yet supported", true)
             end
         end
         distance_from_axis = distance_from_axis*self.gps_settings.main_direction
@@ -279,10 +284,15 @@ function Digger:turn_towards_next_tunnel()
         local bAxis = self.gps_settings.branch_axis
         local bDirection = self.gps_settings.branch_direction
 
-        if ((mAxis == "Z" and hAxis == "X" and mDirection == bDirection)
-         or (mAxis == "X" and hAxis == "Z" and mDirection ~= bDirection)) 
-        then turtle.turnLeft()
-        else turtle.turnRight()
+        log.debug("Turning at the end - ("..mAxis..", "..mDirection..", "..bAxis..", "..bDirection..")")
+        if ((mAxis == "Z" and bAxis == "X" and mDirection == bDirection)
+         or (mAxis == "X" and bAxis == "Z" and mDirection ~= bDirection)) 
+        then 
+            log.debug("Turn left")
+            turtle.turnLeft()
+        else 
+            log.debug("Turn right")
+            turtle.turnRight()
         end
     else
         if NEXT_TUNNEL_DIRECTION == "LEFT" then
