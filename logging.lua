@@ -64,6 +64,10 @@ Logger.new = function()
     self.error = function(message)
         log(Logger.LOGGER_LEVEL_STATUS_ERROR, message)
     end
+
+    write_to_file(Logger.LOGGER_LEVEL_STATUS_INFO, "===================")
+
+    return self
 end
 
 return Logger
